@@ -2,6 +2,7 @@ import os
 import sys
 from pathlib import Path
 
+import pymupdf
 import requests
 from pypinyin import pinyin
 
@@ -51,6 +52,73 @@ def download_binary(url: str, out_path: str):
         print(f"Failed to download file: {e}")
 
 
+def download_files(char: str, out_dir: str) -> tuple[str, str]:
+    """
+    Download the stroke order image and worksheet PDF for a given Chinese character.
+
+    Args:
+        char (str): The Chinese character to download files for
+        out_dir (str): The directory to save the downloaded files
+    """
+    unicode_value = ord(char)
+
+    image_url = f"https://www.strokeorder.com/assets/bishun/guide/{unicode_value}.png"
+    image_path = Path(out_dir) / f"{char}_stroke_order.png"
+    print(f'Downloading stroke order image for "{char}"...')
+    # download_binary(image_url, image_path)
+
+    worksheet_url = f"https://www.strokeorder.com/assets/bishun/worksheets/pdf/2/{unicode_value}.pdf"
+    worksheet_path = Path(out_dir) / f"{char}_raw_worksheet.pdf"
+    print(f'Downloading raw worksheet for "{char}"...')
+    # download_binary(worksheet_url, worksheet_path)
+
+    return image_path, worksheet_path
+
+
+def add_text_to_pdf(input_pdf_path: str, text: str, output_pdf_path: str):
+    """
+    Add text to a PDF file.
+
+    Args:
+        input_pdf_path (str): Path to the input PDF file
+        text (str): Text to add to the PDF
+        output_pdf_path (str): Path to save the modified PDF
+    """
+    doc = pymupdf.open(input_pdf_path)
+    page = doc[0]
+    rect = (50, 50, 200, 500)
+    page.insert_htmlbox(rect, text)
+
+    doc.save(output_pdf_path)
+
+
+def add_image_to_pdf(pdf_path: str, image_path: str):
+    doc = pymupdf.open(pdf_path)
+    page = doc[0]
+    page_rect = page.bound()
+    # Offset from the top right corner
+    image_rect = (page_rect.x1 - 125, 10, page_rect.x1 - 10, 125)
+    page.insert_image(image_rect, filename=image_path)
+
+    doc.save(pdf_path, incremental=True, encryption=0)
+    doc.close()
+
+
+def combines_files(
+    char: str,
+    stroke_order_image_path: str,
+    raw_worksheet_path: str,
+    out_dir: str,
+):
+    pinyin_str = " ".join([p[0] for p in pinyin(char)])
+
+    final_worksheet_path = Path(out_dir) / f"worksheet_{char}.pdf"
+    print(f'Adding pinyin to worksheet for "{char}"...')
+    add_text_to_pdf(raw_worksheet_path, pinyin_str, final_worksheet_path)
+    print(f'Adding stroke order image to worksheet for "{char}"...')
+    add_image_to_pdf(final_worksheet_path, stroke_order_image_path)
+
+
 def main():
     # Create data directory if it doesn't exist
     out_dir = "output"
@@ -67,20 +135,9 @@ def main():
             print(f"'{char}' is not a Chinese character.")
             continue
 
-        print(f'Creating a worksheet for "{char}"...')
-        unicode_value = ord(char)
-
-        image_url = (
-            f"https://www.strokeorder.com/assets/bishun/guide/{unicode_value}.png"
-        )
-        image_path = Path(out_dir) / f"{char}_stroke_order.png"
-        download_binary(image_url, image_path)
-
-        worksheet_url = f"https://www.strokeorder.com/assets/bishun/worksheets/pdf/2/{unicode_value}.pdf"
-        worksheet_path = Path(out_dir) / f"{char}_worksheet.pdf"
-        download_binary(worksheet_url, worksheet_path)
-
-        # py = pinyin(char)
+        image_path, raw_worksheet_path = download_files(char, out_dir)
+        combines_files(char, image_path, raw_worksheet_path, out_dir)
+        print(f'Created a worksheet for "{char}"...')
 
 
 if __name__ == "__main__":
