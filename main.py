@@ -11,15 +11,6 @@ from pypinyin import pinyin
 
 
 def is_chinese_char(char: str) -> bool:
-    """
-    Check if the given character is a Chinese character.
-
-    Args:
-        char (str): A single character to check
-
-    Returns:
-        bool: True if the character is Chinese, False otherwise
-    """
     if len(char) != 1:
         return False
 
@@ -62,6 +53,10 @@ def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
     Args:
         char (str): The Chinese character to download files for
         out_dir (str): The directory to save the downloaded files
+        no_dl (bool): If True, skip downloading files
+
+    Returns:
+        tuple[str, str]: Paths to the downloaded stroke order image and worksheet PDF
     """
     unicode_value = ord(char)
 
@@ -71,7 +66,7 @@ def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
         print("...Skipping download of stroke order image")
     else:
         print("...Downloading stroke order image")
-        time.sleep(random.uniform(0.1, 1))  # Simulate a delay for the download
+        time.sleep(random.uniform(0.1, 1))
         download_binary(image_url, image_path)
 
     worksheet_url = f"https://www.strokeorder.com/assets/bishun/worksheets/pdf/2/{unicode_value}.pdf"
@@ -80,7 +75,7 @@ def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
         print("...Skipping download of raw worksheet")
     else:
         print("...Downloading raw worksheet")
-        time.sleep(random.uniform(0.1, 1))  # Simulate a delay for the download
+        time.sleep(random.uniform(0.1, 1))
         download_binary(worksheet_url, worksheet_path)
 
     return image_path, worksheet_path
@@ -93,6 +88,7 @@ def add_text_to_pdf(input_pdf_path: str, text: str, rect: tuple[int, int, int, i
     Args:
         input_pdf_path (str): Path to the input PDF file
         text (str): Text to add to the PDF
+        rect (tuple[int, int, int, int]): Rectangle coordinates for the text box (x0, y0, x1, y1)
         output_pdf_path (str): Path to save the modified PDF
     """
     doc = pymupdf.open(input_pdf_path)
@@ -107,10 +103,18 @@ def add_text_to_pdf(input_pdf_path: str, text: str, rect: tuple[int, int, int, i
 
 
 def add_image_to_pdf(input_pdf_path: str, image_path: str, output_pdf_path: str):
+    """
+    Add an image to a PDF file.
+
+    Args:
+        input_pdf_path (str): Path to the input PDF file
+        image_path (str): Path to the image file
+        output_pdf_path (str): Path to save the modified PDF
+    """
     doc = pymupdf.open(input_pdf_path)
     page = doc[0]
     page_rect = page.bound()
-    # Offset from the top right corner
+    # Position image in the top right corner
     image_rect = (page_rect.x1 - 125, 10, page_rect.x1 - 10, 125)
     page.insert_image(image_rect, filename=image_path)
 
@@ -178,7 +182,7 @@ def read_characters_from_file(file_path: str) -> list[str]:
 
 def lookup_chinese(word, entries: list[CedictEntry]) -> list[str]:
     """
-    Returns the first three definitions for a given Chinese word.
+    Returns the first three definitions for a given Chinese word. Filters out some less helpful definitions.
     """
     results: list[str] = []
     for entry in entries:
@@ -222,7 +226,7 @@ def main():
     )
     args = parser.parse_args()
 
-    # Parse the dictionary file (you need to download it first)
+    # Parse the dictionary file
     parser = CedictParser(file_path="data/cedict_1_0_ts_utf-8_mdbg.txt")
     entries: list[CedictEntry] = parser.parse()
 
