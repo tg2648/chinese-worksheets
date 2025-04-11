@@ -66,7 +66,7 @@ def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
     unicode_value = ord(char)
 
     image_url = f"https://www.strokeorder.com/assets/bishun/guide/{unicode_value}.png"
-    image_path = Path(out_dir) / f"{char}_stroke_order.png"
+    image_path = Path(out_dir) / "intermediate" / f"{char}_stroke_order.png"
     if no_dl:
         print("...Skipping download of stroke order image")
     else:
@@ -75,7 +75,7 @@ def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
         download_binary(image_url, image_path)
 
     worksheet_url = f"https://www.strokeorder.com/assets/bishun/worksheets/pdf/2/{unicode_value}.pdf"
-    worksheet_path = Path(out_dir) / f"{char}_raw_worksheet.pdf"
+    worksheet_path = Path(out_dir) / "intermediate" / f"{char}_raw_worksheet.pdf"
     if no_dl:
         print("...Skipping download of raw worksheet")
     else:
@@ -203,9 +203,7 @@ def lookup_chinese(word, entries: list[CedictEntry]) -> list[str]:
 
 
 def main():
-    # Create data directory if it doesn't exist
     out_dir = "output"
-    os.makedirs(out_dir, exist_ok=True)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--characters", nargs="*", default=[], help="Chinese characters to process")
@@ -244,7 +242,8 @@ def main():
             continue
 
         print(f'Processing "{char}":')
-        final_worksheet_path = Path(out_dir) / f"worksheet_{char}.pdf"
+        final_worksheet_path = Path(out_dir) / "intermediate" / f"worksheet_{char}.pdf"
+        os.makedirs(final_worksheet_path.parent, exist_ok=True)
         worksheet_paths.append(final_worksheet_path)
 
         pinyin_str = " ".join([p[0] for p in pinyin(char)])
@@ -254,7 +253,9 @@ def main():
         process_raw_worksheet(raw_worksheet_path, pinyin_str, image_path, definitions, final_worksheet_path)
 
     print("Combining all worksheets into one...")
-    combine_worksheets(worksheet_paths, Path(out_dir) / f"{args.name}.pdf")
+    combined_worksheet_path = Path(out_dir) / "combined" / f"{args.name}.pdf"
+    os.makedirs(combined_worksheet_path.parent, exist_ok=True)
+    combine_worksheets(worksheet_paths, Path(out_dir) / "combined" / f"{args.name}.pdf")
 
 
 if __name__ == "__main__":
