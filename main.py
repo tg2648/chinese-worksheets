@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pymupdf
 import requests
+from cedict_utils.cedict import CedictEntry, CedictParser
 from pypinyin import pinyin
 
 
@@ -85,7 +86,7 @@ def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
     return image_path, worksheet_path
 
 
-def add_text_to_pdf(input_pdf_path: str, text: str, output_pdf_path: str):
+def add_text_to_pdf(input_pdf_path: str, text: str, rect: tuple[int, int, int, int], output_pdf_path: str):
     """
     Add text to a PDF file.
 
@@ -96,10 +97,12 @@ def add_text_to_pdf(input_pdf_path: str, text: str, output_pdf_path: str):
     """
     doc = pymupdf.open(input_pdf_path)
     page = doc[0]
-    rect = (50, 50, 200, 500)
     page.insert_htmlbox(rect, text)
 
-    doc.save(output_pdf_path)
+    if input_pdf_path == output_pdf_path:
+        doc.save(output_pdf_path, incremental=True, encryption=0)
+    else:
+        doc.save(output_pdf_path)
     doc.close()
 
 
@@ -133,6 +136,7 @@ def process_raw_worksheet(
     raw_worksheet_path: str,
     pinyin: str,
     stroke_order_image_path: str,
+    definitions: list[str],
     final_worksheet_path: str,
 ):
     """
@@ -140,7 +144,22 @@ def process_raw_worksheet(
     """
 
     print("...Adding pinyin to worksheet")
-    add_text_to_pdf(raw_worksheet_path, pinyin, final_worksheet_path)
+    add_text_to_pdf(
+        input_pdf_path=raw_worksheet_path,
+        text=pinyin,
+        rect=(50, 50, 200, 500),
+        output_pdf_path=final_worksheet_path,
+    )
+
+    print("...Adding definitions to worksheet")
+    definitions_formatted = "<br>".join(definitions)
+    add_text_to_pdf(
+        input_pdf_path=final_worksheet_path,
+        text=definitions_formatted,
+        rect=(50, 495, 800, 800),
+        output_pdf_path=final_worksheet_path,
+    )
+
     print("...Adding stroke order image")
     add_image_to_pdf(final_worksheet_path, stroke_order_image_path)
 
@@ -149,6 +168,32 @@ def read_characters_from_file(file_path: str) -> list[str]:
     with open(file_path, "r", encoding="utf-8") as f:
         characters = f.read().strip().split()
     return characters
+
+
+def lookup_chinese(word, entries: list[CedictEntry]) -> list[str]:
+    """
+    Returns the first three definitions for a given Chinese word.
+    """
+    results: list[str] = []
+    for entry in entries:
+        if entry.traditional == word or entry.simplified == word:
+            results.extend(entry.meanings)
+
+    # Filter results
+    filtered_results = []
+    for result in results:
+        if result.startswith("surname"):
+            continue
+        if "variant of" in result:
+            continue
+        if "CL:" in result:
+            continue
+        if "(slang)" in result:
+            continue
+
+        filtered_results.append(result)
+
+    return filtered_results[:3]
 
 
 def main():
@@ -173,10 +218,18 @@ def main():
     )
     args = parser.parse_args()
 
+    # Parse the dictionary file (you need to download it first)
+    parser = CedictParser(file_path="data/cedict_1_0_ts_utf-8_mdbg.txt")
+    entries: list[CedictEntry] = parser.parse()
+
     characters = []
     for file in args.files:
         characters.extend(read_characters_from_file(file))
     characters.extend(args.characters)
+
+    if not characters:
+        print("No characters provided. Exiting.")
+        return
 
     worksheet_paths = []
     for char in set(characters):
@@ -185,11 +238,14 @@ def main():
             continue
 
         print(f'Processing "{char}":')
-        image_path, raw_worksheet_path = download_files(char, out_dir, args.no_dl)
-        pinyin_str = " ".join([p[0] for p in pinyin(char)])
         final_worksheet_path = Path(out_dir) / f"worksheet_{char}.pdf"
         worksheet_paths.append(final_worksheet_path)
-        process_raw_worksheet(raw_worksheet_path, pinyin_str, image_path, final_worksheet_path)
+
+        pinyin_str = " ".join([p[0] for p in pinyin(char)])
+        definitions = lookup_chinese(char, entries)
+
+        image_path, raw_worksheet_path = download_files(char, out_dir, args.no_dl)
+        process_raw_worksheet(raw_worksheet_path, pinyin_str, image_path, definitions, final_worksheet_path)
 
     print("Combining all worksheets into one...")
     combine_worksheets(worksheet_paths, Path(out_dir) / f"{args.name}.pdf")
