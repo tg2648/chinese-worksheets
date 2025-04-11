@@ -1,5 +1,7 @@
+import argparse
 import os
-import sys
+import random
+import time
 from pathlib import Path
 
 import pymupdf
@@ -64,12 +66,14 @@ def download_files(char: str, out_dir: str) -> tuple[str, str]:
 
     image_url = f"https://www.strokeorder.com/assets/bishun/guide/{unicode_value}.png"
     image_path = Path(out_dir) / f"{char}_stroke_order.png"
-    print(f'Downloading stroke order image for "{char}"...')
+    print("...Downloading stroke order image")
+    time.sleep(random.uniform(0.1, 1))  # Simulate a delay for the download
     # download_binary(image_url, image_path)
 
     worksheet_url = f"https://www.strokeorder.com/assets/bishun/worksheets/pdf/2/{unicode_value}.pdf"
     worksheet_path = Path(out_dir) / f"{char}_raw_worksheet.pdf"
-    print(f'Downloading raw worksheet for "{char}"...')
+    print("...Downloading raw worksheet")
+    time.sleep(random.uniform(0.1, 1))  # Simulate a delay for the download
     # download_binary(worksheet_url, worksheet_path)
 
     return image_path, worksheet_path
@@ -90,6 +94,7 @@ def add_text_to_pdf(input_pdf_path: str, text: str, output_pdf_path: str):
     page.insert_htmlbox(rect, text)
 
     doc.save(output_pdf_path)
+    doc.close()
 
 
 def add_image_to_pdf(pdf_path: str, image_path: str):
@@ -104,19 +109,40 @@ def add_image_to_pdf(pdf_path: str, image_path: str):
     doc.close()
 
 
-def combines_files(
-    char: str,
-    stroke_order_image_path: str,
-    raw_worksheet_path: str,
-    out_dir: str,
-):
-    pinyin_str = " ".join([p[0] for p in pinyin(char)])
+def combine_worksheets(input_pdf_paths: list[str], output_pdf_path: str):
+    """
+    Combine multiple worksheets into one PDF.
+    """
+    doc = pymupdf.open()
 
-    final_worksheet_path = Path(out_dir) / f"worksheet_{char}.pdf"
-    print(f'Adding pinyin to worksheet for "{char}"...')
-    add_text_to_pdf(raw_worksheet_path, pinyin_str, final_worksheet_path)
-    print(f'Adding stroke order image to worksheet for "{char}"...')
+    for path in input_pdf_paths:
+        with pymupdf.open(path) as temp_doc:
+            doc.insert_pdf(temp_doc)
+
+    doc.save(output_pdf_path)
+    doc.close()
+
+
+def process_raw_worksheet(
+    raw_worksheet_path: str,
+    pinyin: str,
+    stroke_order_image_path: str,
+    final_worksheet_path: str,
+):
+    """
+    Process the raw worksheet PDF by adding pinyin and stroke order image.
+    """
+
+    print("...Adding pinyin to worksheet")
+    add_text_to_pdf(raw_worksheet_path, pinyin, final_worksheet_path)
+    print("...Adding stroke order image")
     add_image_to_pdf(final_worksheet_path, stroke_order_image_path)
+
+
+def read_characters_from_file(file_path: str) -> list[str]:
+    with open(file_path, "r", encoding="utf-8") as f:
+        characters = f.read().strip().split()
+    return characters
 
 
 def main():
@@ -124,20 +150,40 @@ def main():
     out_dir = "output"
     os.makedirs(out_dir, exist_ok=True)
 
-    if len(sys.argv) <= 1:
-        print("Please provide one or more Chinese characters as arguments.")
-        print("Example: python main.py 想 好")
-        return
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--characters", nargs="*", default=[], help="Chinese characters to process")
+    parser.add_argument(
+        "-f", "--files", nargs="*", default=[], help="Chinese characters to process from one or more file"
+    )
+    parser.add_argument(
+        "-n",
+        "--name",
+        type=str,
+        default="combined_worksheet",
+        help="Name of the final worksheet",
+    )
+    args = parser.parse_args()
 
-    chars = sys.argv[1:]
-    for char in chars:
+    characters = []
+    for file in args.files:
+        characters.extend(read_characters_from_file(file))
+    characters.extend(args.characters)
+
+    worksheet_paths = []
+    for char in set(characters):
         if not is_chinese_char(char):
             print(f"'{char}' is not a Chinese character.")
             continue
 
+        print(f'Processing "{char}":')
         image_path, raw_worksheet_path = download_files(char, out_dir)
-        combines_files(char, image_path, raw_worksheet_path, out_dir)
-        print(f'Created a worksheet for "{char}"...')
+        pinyin_str = " ".join([p[0] for p in pinyin(char)])
+        final_worksheet_path = Path(out_dir) / f"worksheet_{char}.pdf"
+        worksheet_paths.append(final_worksheet_path)
+        process_raw_worksheet(raw_worksheet_path, pinyin_str, image_path, final_worksheet_path)
+
+    print("Combining all worksheets into one...")
+    combine_worksheets(worksheet_paths, Path(out_dir) / f"{args.name}.pdf")
 
 
 if __name__ == "__main__":
