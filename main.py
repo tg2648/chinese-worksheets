@@ -227,7 +227,7 @@ def main():
     parser = CedictParser(file_path="data/cedict_1_0_ts_utf-8_mdbg.txt")
     entries: list[CedictEntry] = parser.parse()
 
-    characters = []
+    characters: list[str] = []
     for file in args.files:
         characters.extend(read_characters_from_file(file))
     characters.extend(args.characters)
@@ -239,7 +239,7 @@ def main():
     worksheet_paths = []
     for char in set(characters):
         if not is_chinese_char(char):
-            print(f"'{char}' is not a Chinese character.")
+            print(f"'{char}' is not a Chinese character or has more than one character per line.")
             continue
 
         print(f'Processing "{char}":')
