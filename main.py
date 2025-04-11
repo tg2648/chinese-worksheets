@@ -36,14 +36,11 @@ def is_chinese_char(char: str) -> bool:
 
 
 def download_binary(url: str, out_path: str):
-    try:
-        response = requests.get(url)
-        response.raise_for_status()  # Raise an exception for bad responses
+    response = requests.get(url)
+    response.raise_for_status()  # Raise an exception for bad responses
 
-        with open(out_path, "wb") as f:
-            f.write(response.content)
-    except Exception as e:
-        print(f"Failed to download file: {e}")
+    with open(out_path, "wb") as f:
+        f.write(response.content)
 
 
 def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
