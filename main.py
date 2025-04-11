@@ -54,7 +54,7 @@ def download_binary(url: str, out_path: str):
         print(f"Failed to download file: {e}")
 
 
-def download_files(char: str, out_dir: str) -> tuple[str, str]:
+def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
     """
     Download the stroke order image and worksheet PDF for a given Chinese character.
 
@@ -66,15 +66,21 @@ def download_files(char: str, out_dir: str) -> tuple[str, str]:
 
     image_url = f"https://www.strokeorder.com/assets/bishun/guide/{unicode_value}.png"
     image_path = Path(out_dir) / f"{char}_stroke_order.png"
-    print("...Downloading stroke order image")
-    time.sleep(random.uniform(0.1, 1))  # Simulate a delay for the download
-    # download_binary(image_url, image_path)
+    if no_dl:
+        print("...Skipping download of stroke order image")
+    else:
+        print("...Downloading stroke order image")
+        time.sleep(random.uniform(0.1, 1))  # Simulate a delay for the download
+        download_binary(image_url, image_path)
 
     worksheet_url = f"https://www.strokeorder.com/assets/bishun/worksheets/pdf/2/{unicode_value}.pdf"
     worksheet_path = Path(out_dir) / f"{char}_raw_worksheet.pdf"
-    print("...Downloading raw worksheet")
-    time.sleep(random.uniform(0.1, 1))  # Simulate a delay for the download
-    # download_binary(worksheet_url, worksheet_path)
+    if no_dl:
+        print("...Skipping download of raw worksheet")
+    else:
+        print("...Downloading raw worksheet")
+        time.sleep(random.uniform(0.1, 1))  # Simulate a delay for the download
+        download_binary(worksheet_url, worksheet_path)
 
     return image_path, worksheet_path
 
@@ -162,6 +168,9 @@ def main():
         default="combined_worksheet",
         help="Name of the final worksheet",
     )
+    parser.add_argument(
+        "--no-dl", action="store_true", help="Skip downloading files (if individual files already exist)"
+    )
     args = parser.parse_args()
 
     characters = []
@@ -176,7 +185,7 @@ def main():
             continue
 
         print(f'Processing "{char}":')
-        image_path, raw_worksheet_path = download_files(char, out_dir)
+        image_path, raw_worksheet_path = download_files(char, out_dir, args.no_dl)
         pinyin_str = " ".join([p[0] for p in pinyin(char)])
         final_worksheet_path = Path(out_dir) / f"worksheet_{char}.pdf"
         worksheet_paths.append(final_worksheet_path)
