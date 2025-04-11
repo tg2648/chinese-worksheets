@@ -102,19 +102,22 @@ def add_text_to_pdf(input_pdf_path: str, text: str, rect: tuple[int, int, int, i
     if input_pdf_path == output_pdf_path:
         doc.save(output_pdf_path, incremental=True, encryption=0)
     else:
-        doc.save(output_pdf_path)
+        doc.save(output_pdf_path, deflate=True, garbage=3, use_objstms=1)
     doc.close()
 
 
-def add_image_to_pdf(pdf_path: str, image_path: str):
-    doc = pymupdf.open(pdf_path)
+def add_image_to_pdf(input_pdf_path: str, image_path: str, output_pdf_path: str):
+    doc = pymupdf.open(input_pdf_path)
     page = doc[0]
     page_rect = page.bound()
     # Offset from the top right corner
     image_rect = (page_rect.x1 - 125, 10, page_rect.x1 - 10, 125)
     page.insert_image(image_rect, filename=image_path)
 
-    doc.save(pdf_path, incremental=True, encryption=0)
+    if input_pdf_path == output_pdf_path:
+        doc.save(output_pdf_path, incremental=True, encryption=0)
+    else:
+        doc.save(output_pdf_path, deflate=True, garbage=3, use_objstms=1)
     doc.close()
 
 
@@ -128,7 +131,7 @@ def combine_worksheets(input_pdf_paths: list[str], output_pdf_path: str):
         with pymupdf.open(path) as temp_doc:
             doc.insert_pdf(temp_doc)
 
-    doc.save(output_pdf_path)
+    doc.save(output_pdf_path, deflate=True, garbage=3, use_objstms=1)
     doc.close()
 
 
@@ -142,7 +145,6 @@ def process_raw_worksheet(
     """
     Process the raw worksheet PDF by adding pinyin and stroke order image.
     """
-
     print("...Adding pinyin to worksheet")
     add_text_to_pdf(
         input_pdf_path=raw_worksheet_path,
@@ -161,7 +163,11 @@ def process_raw_worksheet(
     )
 
     print("...Adding stroke order image")
-    add_image_to_pdf(final_worksheet_path, stroke_order_image_path)
+    add_image_to_pdf(
+        input_pdf_path=final_worksheet_path,
+        image_path=stroke_order_image_path,
+        output_pdf_path=final_worksheet_path,
+    )
 
 
 def read_characters_from_file(file_path: str) -> list[str]:
