@@ -217,11 +217,10 @@ def main():
         "-f", "--files", nargs="*", default=[], help="Chinese characters to process from one or more file"
     )
     parser.add_argument(
-        "-n",
-        "--name",
+        "-o",
+        "--output",
         type=str,
-        default="combined_worksheet",
-        help="Name of the final worksheet",
+        help="Combine all worksheets into one PDF with the given name",
     )
     parser.add_argument(
         "--no-dl", action="store_true", help="Skip downloading files (if individual files already exist)"
@@ -262,11 +261,17 @@ def main():
         image_path, raw_worksheet_path = download_files(char, raw_files_dir, args.no_dl, overwrite=False)
         process_raw_worksheet(raw_worksheet_path, pinyin_str, image_path, definitions, final_worksheet_path)
 
-    print("Combining all worksheets into one...")
-    combined_worksheet_path = Path(out_dir) / "combined" / f"{args.name}.pdf"
-    os.makedirs(combined_worksheet_path.parent, exist_ok=True)
-    combine_worksheets(worksheet_paths, Path(out_dir) / "combined" / f"{args.name}.pdf")
+    if args.output is not None:
+        print("Combining all worksheets into one...")
+        output_name = args.output.replace(".pdf", "")
+        combined_worksheet_path = Path(out_dir) / "combined" / f"{output_name}.pdf"
+        os.makedirs(combined_worksheet_path.parent, exist_ok=True)
+        combine_worksheets(worksheet_paths, Path(out_dir) / "combined" / f"{output_name}.pdf")
 
+    if args.output is not None:
+        print(f"Combined worksheet saved to: {combined_worksheet_path}")
+    else:
+        print(f"Individual worksheets saved to: {final_worksheet_dir}")
 
 if __name__ == "__main__":
     main()
