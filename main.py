@@ -83,48 +83,36 @@ def download_files(char: str, out_dir: str, no_dl: bool, overwrite: bool) -> tup
     return image_path, worksheet_path
 
 
-def add_text_to_pdf(input_pdf_path: str, text: str, rect: tuple[int, int, int, int], output_pdf_path: str):
+def add_text_to_pdf(pdf: pymupdf.Document, text: str, rect: tuple[int, int, int, int]) -> pymupdf.Document:
     """
     Add text to a PDF file.
 
     Args:
-        input_pdf_path (str): Path to the input PDF file
+        pdf (pymupdf.Document): The input PDF document
         text (str): Text to add to the PDF
         rect (tuple[int, int, int, int]): Rectangle coordinates for the text box (x0, y0, x1, y1)
-        output_pdf_path (str): Path to save the modified PDF
     """
-    doc = pymupdf.open(input_pdf_path)
-    page = doc[0]
+    page = pdf[0]
     page.insert_htmlbox(rect, text)
 
-    if input_pdf_path == output_pdf_path:
-        doc.save(output_pdf_path, incremental=True, encryption=0)
-    else:
-        doc.save(output_pdf_path, deflate=True, garbage=3, use_objstms=1)
-    doc.close()
+    return pdf
 
 
-def add_image_to_pdf(input_pdf_path: str, image_path: str, output_pdf_path: str):
+def add_image_to_pdf(pdf: pymupdf.Document, image_path: str) -> pymupdf.Document:
     """
     Add an image to a PDF file.
 
     Args:
-        input_pdf_path (str): Path to the input PDF file
+        pdf (pymupdf.Document): The input PDF document
         image_path (str): Path to the image file
-        output_pdf_path (str): Path to save the modified PDF
     """
-    doc = pymupdf.open(input_pdf_path)
-    page = doc[0]
+    page = pdf[0]
     page_rect = page.bound()
     # Position image in the top right corner
     image_rect = (page_rect.x1 - 125, 10, page_rect.x1 - 10, 125)
     page.insert_image(image_rect, filename=image_path)
 
-    if input_pdf_path == output_pdf_path:
-        doc.save(output_pdf_path, incremental=True, encryption=0)
-    else:
-        doc.save(output_pdf_path, deflate=True, garbage=3, use_objstms=1)
-    doc.close()
+    return pdf
 
 
 def combine_worksheets(input_pdf_paths: list[str], output_pdf_path: str):
@@ -151,29 +139,23 @@ def process_raw_worksheet(
     """
     Process the raw worksheet PDF by adding pinyin and stroke order image.
     """
+    pdf = pymupdf.open(raw_worksheet_path)
+
     print("...Adding pinyin to worksheet")
-    add_text_to_pdf(
-        input_pdf_path=raw_worksheet_path,
-        text=pinyin,
-        rect=(50, 50, 200, 500),
-        output_pdf_path=final_worksheet_path,
-    )
+    add_text_to_pdf(pdf=pdf, text=pinyin, rect=(50, 50, 200, 500))
 
     print("...Adding definitions to worksheet")
     definitions_formatted = "<br>".join(definitions)
-    add_text_to_pdf(
-        input_pdf_path=final_worksheet_path,
-        text=definitions_formatted,
-        rect=(50, 495, 800, 800),
-        output_pdf_path=final_worksheet_path,
-    )
+    add_text_to_pdf(pdf=pdf, text=definitions_formatted, rect=(50, 495, 800, 800))
 
     print("...Adding stroke order image")
-    add_image_to_pdf(
-        input_pdf_path=final_worksheet_path,
-        image_path=stroke_order_image_path,
-        output_pdf_path=final_worksheet_path,
-    )
+    add_image_to_pdf(pdf=pdf, image_path=stroke_order_image_path)
+
+    if raw_worksheet_path == final_worksheet_path:
+        pdf.save(final_worksheet_path, incremental=True, encryption=0)
+    else:
+        pdf.save(final_worksheet_path, deflate=True, garbage=3, use_objstms=1)
+    pdf.close()
 
 
 def read_characters_from_file(file_path: str) -> list[str]:
@@ -272,6 +254,7 @@ def main():
         print(f"Combined worksheet saved to: {combined_worksheet_path}")
     else:
         print(f"Individual worksheets saved to: {final_worksheet_dir}")
+
 
 if __name__ == "__main__":
     main()
