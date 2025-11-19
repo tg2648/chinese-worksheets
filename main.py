@@ -43,7 +43,7 @@ def download_binary(url: str, out_path: str):
         f.write(response.content)
 
 
-def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
+def download_files(char: str, out_dir: str, no_dl: bool, overwrite: bool) -> tuple[str, str]:
     """
     Download the stroke order image and worksheet PDF for a given Chinese character.
 
@@ -51,6 +51,7 @@ def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
         char (str): The Chinese character to download files for
         out_dir (str): The directory to save the downloaded files
         no_dl (bool): If True, skip downloading files
+        overwrite (bool): If False, skip downloading if file exists in out_dir
 
     Returns:
         tuple[str, str]: Paths to the downloaded stroke order image and worksheet PDF
@@ -58,18 +59,22 @@ def download_files(char: str, out_dir: str, no_dl: bool) -> tuple[str, str]:
     unicode_value = ord(char)
 
     image_url = f"https://www.strokeorder.com/assets/bishun/guide/{unicode_value}.png"
-    image_path = Path(out_dir) / "intermediate" / f"{char}_stroke_order.png"
+    image_path = Path(out_dir) / f"{char}_stroke_order.png"
     if no_dl:
         print("...Skipping download of stroke order image")
+    elif not overwrite and image_path.exists():
+        print("...Skipping download of stroke order image (file already exists)")
     else:
         print("...Downloading stroke order image")
         time.sleep(random.uniform(0.1, 1))
         download_binary(image_url, image_path)
 
     worksheet_url = f"https://www.strokeorder.com/assets/bishun/worksheets/pdf/2/{unicode_value}.pdf"
-    worksheet_path = Path(out_dir) / "intermediate" / f"{char}_raw_worksheet.pdf"
+    worksheet_path = Path(out_dir) / f"{char}_raw_worksheet.pdf"
     if no_dl:
         print("...Skipping download of raw worksheet")
+    elif not overwrite and worksheet_path.exists():
+        print("...Skipping download of raw worksheet (file already exists)")
     else:
         print("...Downloading raw worksheet")
         time.sleep(random.uniform(0.1, 1))
@@ -204,7 +209,7 @@ def lookup_chinese(word, entries: list[CedictEntry]) -> list[str]:
 
 
 def main():
-    out_dir = "output"
+    out_dir = Path("output")
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--characters", nargs="*", default=[], help="Chinese characters to process")
@@ -236,6 +241,11 @@ def main():
         print("No characters provided. Exiting.")
         return
 
+    raw_files_dir = Path(out_dir) / "raw_files"
+    os.makedirs(raw_files_dir, exist_ok=True)
+    final_worksheet_dir = Path(out_dir) / "final_worksheets"
+    os.makedirs(final_worksheet_dir, exist_ok=True)
+
     worksheet_paths = []
     for char in set(characters):
         if not is_chinese_char(char):
@@ -243,14 +253,13 @@ def main():
             continue
 
         print(f'Processing "{char}":')
-        final_worksheet_path = Path(out_dir) / "intermediate" / f"worksheet_{char}.pdf"
-        os.makedirs(final_worksheet_path.parent, exist_ok=True)
+        final_worksheet_path = final_worksheet_dir / f"worksheet_{char}.pdf"
         worksheet_paths.append(final_worksheet_path)
 
         pinyin_str = " ".join([p[0] for p in pinyin(char)])
         definitions = lookup_chinese(char, entries)
 
-        image_path, raw_worksheet_path = download_files(char, out_dir, args.no_dl)
+        image_path, raw_worksheet_path = download_files(char, raw_files_dir, args.no_dl, overwrite=False)
         process_raw_worksheet(raw_worksheet_path, pinyin_str, image_path, definitions, final_worksheet_path)
 
     print("Combining all worksheets into one...")
