@@ -9,6 +9,8 @@ import requests
 from cedict_utils.cedict import CedictEntry, CedictParser
 from pypinyin import pinyin
 
+PathLike = str | Path
+
 
 def is_chinese_char(char: str) -> bool:
     if len(char) != 1:
@@ -35,7 +37,7 @@ def is_chinese_char(char: str) -> bool:
     return any(start <= code_point <= end for start, end in ranges)
 
 
-def download_binary(url: str, out_path: str):
+def download_binary(url: str, out_path: PathLike):
     response = requests.get(url)
     response.raise_for_status()  # Raise an exception for bad responses
 
@@ -43,7 +45,7 @@ def download_binary(url: str, out_path: str):
         f.write(response.content)
 
 
-def download_files(char: str, out_dir: str, no_dl: bool, overwrite: bool) -> tuple[str, str]:
+def download_files(char: str, out_dir: PathLike, no_dl: bool, overwrite: bool) -> tuple[PathLike, PathLike]:
     """
     Download the stroke order image and worksheet PDF for a given Chinese character.
 
@@ -93,12 +95,12 @@ def add_text_to_pdf(pdf: pymupdf.Document, text: str, rect: tuple[int, int, int,
         rect (tuple[int, int, int, int]): Rectangle coordinates for the text box (x0, y0, x1, y1)
     """
     page = pdf[0]
-    page.insert_htmlbox(rect, text)
+    page.insert_htmlbox(rect, text)  # type: ignore
 
     return pdf
 
 
-def add_image_to_pdf(pdf: pymupdf.Document, image_path: str) -> pymupdf.Document:
+def add_image_to_pdf(pdf: pymupdf.Document, image_path: PathLike) -> pymupdf.Document:
     """
     Add an image to a PDF file.
 
@@ -110,12 +112,12 @@ def add_image_to_pdf(pdf: pymupdf.Document, image_path: str) -> pymupdf.Document
     page_rect = page.bound()
     # Position image in the top right corner
     image_rect = (page_rect.x1 - 125, 10, page_rect.x1 - 10, 125)
-    page.insert_image(image_rect, filename=image_path)
+    page.insert_image(image_rect, filename=image_path)  # type: ignore
 
     return pdf
 
 
-def combine_worksheets(input_pdf_paths: list[str], output_pdf_path: str):
+def combine_worksheets(input_pdf_paths: list[PathLike], output_pdf_path: PathLike):
     """
     Combine multiple worksheets into one PDF.
     """
@@ -130,11 +132,11 @@ def combine_worksheets(input_pdf_paths: list[str], output_pdf_path: str):
 
 
 def process_raw_worksheet(
-    raw_worksheet_path: str,
+    raw_worksheet_path: PathLike,
     pinyin: str,
-    stroke_order_image_path: str,
+    stroke_order_image_path: PathLike,
     definitions: list[str],
-    final_worksheet_path: str,
+    final_worksheet_path: PathLike,
 ):
     """
     Process the raw worksheet PDF by adding pinyin and stroke order image.
@@ -249,8 +251,6 @@ def main():
         combined_worksheet_path = Path(out_dir) / "combined" / f"{output_name}.pdf"
         os.makedirs(combined_worksheet_path.parent, exist_ok=True)
         combine_worksheets(worksheet_paths, Path(out_dir) / "combined" / f"{output_name}.pdf")
-
-    if args.output is not None:
         print(f"Combined worksheet saved to: {combined_worksheet_path}")
     else:
         print(f"Individual worksheets saved to: {final_worksheet_dir}")
